@@ -53,11 +53,14 @@ func runMain(api *service.Service, uris []string) error {
 			return err
 		} else {
 			for {
-				if response, err := api.Status(operation); err != nil {
+				if status, err := api.Status(operation); err != nil {
 					return err
 				} else {
-					fmt.Println("Response=", response)
+					fmt.Println("status=", status)
 					time.Sleep(1 * time.Second)
+					if status.Done {
+						break
+					}
 				}
 			}
 		}

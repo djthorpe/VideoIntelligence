@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
+	"time"
 
 	v1 "github.com/djthorpe/VideoIntelligence/videointelligence/v1"
 	v1beta2 "github.com/djthorpe/VideoIntelligence/videointelligence/v1beta2"
@@ -23,10 +26,21 @@ type Service struct {
 }
 
 type Status struct {
+	Name     string
 	Uri      string
-	Type     []AnnotationType
 	Done     bool
-	progress map[AnnotationType]*v1beta2.GoogleCloudVideointelligenceV1VideoAnnotationProgress
+	Type     []AnnotationType
+	Progress map[AnnotationType]*Progress
+}
+
+type Progress struct {
+	Percent    int64
+	StartTime  time.Time
+	UpdateTime time.Time
+}
+
+type my_time struct {
+	time.Time
 }
 
 // AnnotationType are the types of annotations
@@ -85,9 +99,10 @@ func (this *Service) Annotate(uri string, flags AnnotationType) (string, error) 
 	} else {
 		// Append the operation name into the list of current operations
 		this.status[response.Name] = &Status{
+			Name:     response.Name,
 			Uri:      uri,
 			Type:     annotateTypeArray(flags),
-			progress: make(map[AnnotationType]*v1beta2.GoogleCloudVideointelligenceV1VideoAnnotationProgress, 3),
+			Progress: make(map[AnnotationType]*Progress, 3),
 		}
 		return response.Name, nil
 	}
@@ -109,7 +124,13 @@ func (this *Service) Status(name string) (*Status, error) {
 		// decode the status codes
 		for i, statusDetail := range progress.AnnotationProgress {
 			annotationType := status.Type[i]
-			status.progress[annotationType] = statusDetail
+			startTime, _ := time.Parse(time.RFC3339Nano, statusDetail.StartTime)
+			updateTime, _ := time.Parse(time.RFC3339Nano, statusDetail.UpdateTime)
+			status.Progress[annotationType] = &Progress{
+				statusDetail.ProgressPercent,
+				startTime,
+				updateTime,
+			}
 		}
 		// set the done flag
 		status.Done = response.Done
@@ -179,4 +200,30 @@ func (t AnnotationType) String() string {
 	default:
 		return "ANNOTATION_NONE"
 	}
+}
+
+func (s Status) String() string {
+	progress := make([]string, 0, 3)
+	for _, annotationType := range []AnnotationType{ANNOTATION_LABEL, ANNOTATION_EXPLICIT_CONTENT, ANNOTATION_SHOT_CHANGE} {
+		annotationProgress, exists := s.Progress[annotationType]
+		if exists {
+			progress = append(progress, fmt.Sprintf("%v=%v", annotationType, annotationProgress))
+		}
+	}
+	return fmt.Sprintf("{ name=%v uri=%v done=%v progress=[ %v ] }", s.Name, s.Uri, s.Done, strings.Join(progress, ","))
+}
+
+func (p Progress) String() string {
+	return fmt.Sprintf("{ percent=%v start=%v updated=%v }", p.Percent, my_time{p.StartTime}, my_time{p.UpdateTime})
+}
+
+func (t my_time) String() string {
+	difference := -t.Sub(time.Now())
+	if difference.Seconds() < 60 {
+		return fmt.Sprintf("%v secs ago", int(difference.Seconds()))
+	}
+	if difference.Minutes() < 90 {
+		return fmt.Sprintf("%v mins ago", int(difference.Minutes()))
+	}
+	return fmt.Sprintf("%v hours ago", int(difference.Hours()))
 }
