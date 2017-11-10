@@ -6,9 +6,10 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"golang.org/x/oauth2"
+	v1 "github.com/djthorpe/VideoIntelligence/videointelligence/v1"
+	v1beta2 "github.com/djthorpe/VideoIntelligence/videointelligence/v1beta2"
+	oauth2 "golang.org/x/oauth2"
 	google "golang.org/x/oauth2/google"
-	api "google.golang.org/api/videointelligence/v1beta1"
 )
 
 var (
@@ -19,7 +20,9 @@ var (
 // STRUCTS
 
 type Service struct {
-	service *api.Service
+	videos *v1beta2.Service
+	ops    *v1.Service
+	names  []string
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -31,15 +34,40 @@ func NewServiceFromServiceAccountJSON(filename string, debug bool) (*Service, er
 	if err != nil {
 		return nil, ErrorInvalidServiceAccount
 	}
-	saConfig, err := google.JWTConfigFromJSON(bytes, api.CloudPlatformScope)
+	saConfig, err := google.JWTConfigFromJSON(bytes, v1beta2.CloudPlatformScope)
 	if err != nil {
 		return nil, ErrorInvalidServiceAccount
 	}
 	client := saConfig.Client(getContext(debug))
-	if api, err := api.New(client); err != nil {
+	if videos, err := v1beta2.New(client); err != nil {
+		return nil, err
+	} else if ops, err := v1.New(client); err != nil {
 		return nil, err
 	} else {
-		return &Service{api}, nil
+		return &Service{videos, ops, make([]string, 0)}, nil
+	}
+}
+
+func (this *Service) Annotate(uri string) (string, error) {
+	call := this.videos.Videos.Annotate(&v1beta2.GoogleCloudVideointelligenceV1beta2AnnotateVideoRequest{
+		Features: []string{"LABEL_DETECTION", "SHOT_CHANGE_DETECTION", "EXPLICIT_CONTENT_DETECTION"},
+		InputUri: uri,
+	})
+	if response, err := call.Do(); err != nil {
+		return "", err
+	} else {
+		// Append the operation name into the list of current operations
+		this.names = append(this.names, response.Name)
+		return response.Name, nil
+	}
+}
+
+func (this *Service) OperationStatus(name string) (*v1.GoogleLongrunningOperation, error) {
+	call := this.ops.Operations.Get(name)
+	if response, err := call.Do(); err != nil {
+		return nil, err
+	} else {
+		return response, nil
 	}
 }
 
