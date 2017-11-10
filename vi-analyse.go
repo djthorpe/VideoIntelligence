@@ -12,8 +12,11 @@ import (
 )
 
 var (
-	FlagServiceAccount = flag.String("sa", ".yt-video-intelligence.json", "Service Account JSON")
-	FlagDebug          = flag.Bool("debug", false, "Debug")
+	FlagServiceAccount  = flag.String("sa", ".yt-video-intelligence.json", "Service Account JSON")
+	FlagDebug           = flag.Bool("debug", false, "Debug")
+	FlagShotChange      = flag.Bool("shot", false, "Annotate for Shot Changes")
+	FlagLabel           = flag.Bool("label", true, "Annotate for Labels")
+	FlagExplicitContent = flag.Bool("explicit", false, "Annotate for Explicit Content")
 )
 
 func filenameToAbsolute(filename string) (string, error) {
@@ -25,6 +28,20 @@ func filenameToAbsolute(filename string) (string, error) {
 	}
 }
 
+func annotationFlags() service.AnnotationType {
+	var flags service.AnnotationType
+	if *FlagShotChange {
+		flags |= service.ANNOTATION_SHOT_CHANGE
+	}
+	if *FlagLabel {
+		flags |= service.ANNOTATION_LABEL
+	}
+	if *FlagExplicitContent {
+		flags |= service.ANNOTATION_EXPLICIT_CONTENT
+	}
+	return flags
+}
+
 func runMain(api *service.Service, uris []string) error {
 	if len(uris) == 0 {
 		return errors.New("Missing uri arguments")
@@ -32,7 +49,7 @@ func runMain(api *service.Service, uris []string) error {
 
 	// Return Annotate result for each URI
 	for _, uri := range uris {
-		if operation, err := api.Annotate(uri, service.ANNOTATION_EXPLICIT_CONTENT); err != nil {
+		if operation, err := api.Annotate(uri, annotationFlags()); err != nil {
 			return err
 		} else {
 			for {
