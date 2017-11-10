@@ -25,21 +25,21 @@ func filenameToAbsolute(filename string) (string, error) {
 	}
 }
 
-func runMain(service *service.Service, uris []string) error {
+func runMain(api *service.Service, uris []string) error {
 	if len(uris) == 0 {
 		return errors.New("Missing uri arguments")
 	}
 
 	// Return Annotate result for each URI
 	for _, uri := range uris {
-		if operation, err := service.Annotate(uri); err != nil {
+		if operation, err := api.Annotate(uri, service.ANNOTATION_EXPLICIT_CONTENT); err != nil {
 			return err
 		} else {
 			for {
-				if response, err := service.OperationStatus(operation); err != nil {
+				if response, err := api.Status(operation); err != nil {
 					return err
 				} else {
-					fmt.Println("Response=", response.Metadata)
+					fmt.Println("Response=", response)
 					time.Sleep(1 * time.Second)
 				}
 			}
