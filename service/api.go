@@ -17,34 +17,45 @@ import (
 )
 
 ///////////////////////////////////////////////////////////////////////////////
-// STRUCTS
+// PUBLIC STRUCTS
 
+// Service defines the client for the Video Intellgence API
 type Service struct {
 	videos *v1beta2.Service
 	ops    *v1.Service
 	status map[string]*Status
 }
 
+// Status defines the current operation status
 type Status struct {
 	Name     string
 	Uri      string
 	Done     bool
 	Type     []AnnotationType
 	Progress map[AnnotationType]*Progress
+	Updated  time.Time
 }
 
+// Progress defines progress on the annotation operations
 type Progress struct {
+	Done       bool
 	Percent    int64
 	StartTime  time.Time
 	UpdateTime time.Time
 }
 
-type my_time struct {
-	time.Time
-}
+// Response defines the response of the annotation operations
+type Response struct{}
 
 // AnnotationType are the types of annotations
 type AnnotationType uint
+
+///////////////////////////////////////////////////////////////////////////////
+// PRIVATE STRUCTS
+
+type my_time struct {
+	time.Time
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // CONSTANTS
@@ -56,9 +67,15 @@ const (
 	ANNOTATION_EXPLICIT_CONTENT AnnotationType = 1 << iota
 )
 
+const (
+	// Duration which to fetch remote status
+	duration_CACHE_EXPIRY time.Duration = 1 * time.Minute
+)
+
 var (
 	ErrInvalidServiceAccount = errors.New("Invalid Service Account")
-	ErrNotFound              = errors.New("Not Found")
+	ErrNotFound              = errors.New("Not found")
+	ErrInProgress            = errors.New("In progress")
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -126,20 +143,52 @@ func (this *Service) Status(name string) (*Status, error) {
 			annotationType := status.Type[i]
 			startTime, _ := time.Parse(time.RFC3339Nano, statusDetail.StartTime)
 			updateTime, _ := time.Parse(time.RFC3339Nano, statusDetail.UpdateTime)
+			done := (statusDetail.ProgressPercent == 100)
 			status.Progress[annotationType] = &Progress{
+				done,
 				statusDetail.ProgressPercent,
 				startTime,
 				updateTime,
 			}
 		}
-		// set the done flag
+		// set the done flag and updated flag
 		status.Done = response.Done
+		status.Updated = time.Now()
 		return status, nil
 	}
 }
 
-func (this *Service) ExplicitAnnotations(name string) {
+func (this *Service) ExplicitAnnotations(name string) (*Response, error) {
+	// Get progress on operation, if not completed then return error
+	if progress, err := this.getCachedProgress(name, ANNOTATION_LABEL, duration_CACHE_EXPIRY); err != nil {
+		return nil, err
+	} else if progress.Done == false {
+		return nil, ErrInProgress
+	}
 	// TODO
+	return &Response{}, nil
+}
+
+func (this *Service) LabelAnnotations(name string) (*Response, error) {
+	// Get progress on operation, if not completed then return error
+	if progress, err := this.getCachedProgress(name, ANNOTATION_LABEL, duration_CACHE_EXPIRY); err != nil {
+		return nil, err
+	} else if progress.Done == false {
+		return nil, ErrInProgress
+	}
+	// TODO
+	return &Response{}, nil
+}
+
+func (this *Service) ShotChangeAnnotations(name string) (*Response, error) {
+	// Get progress on operation, if not completed then return error
+	if progress, err := this.getCachedProgress(name, ANNOTATION_LABEL, duration_CACHE_EXPIRY); err != nil {
+		return nil, err
+	} else if progress.Done == false {
+		return nil, ErrInProgress
+	}
+	// TODO
+	return &Response{}, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -186,6 +235,44 @@ func annotateTypeArray(flags AnnotationType) []AnnotationType {
 	return typeArray
 }
 
+// getCachedStatus returns a status object, or a refresh the status object if
+// hasn't been updated in a while
+func (this *Service) getCachedStatus(name string, cacheExpiry time.Duration) (*Status, error) {
+	var (
+		status *Status
+		exists bool
+		fetch  bool
+		err    error
+	)
+
+	// Set fetch flag which indicates we need ro re-fetch the status object
+	if status, exists = this.status[name]; exists == false {
+		fetch = true
+	} else if time.Now().Sub(status.Updated) >= cacheExpiry {
+		fetch = true
+	}
+
+	// Fetch the status object (side-effect is that it's set in 'this')
+	if fetch {
+		if status, err = this.Status(name); err != nil {
+			return nil, err
+		}
+	}
+
+	// Return the status object
+	return status, nil
+}
+
+func (this *Service) getCachedProgress(name string, annotationType AnnotationType, cacheExpiry time.Duration) (*Progress, error) {
+	if status, err := this.getCachedStatus(name, cacheExpiry); err != nil {
+		return nil, err
+	} else if progress, exists := status.Progress[annotationType]; exists == false {
+		return nil, ErrNotFound
+	} else {
+		return progress, nil
+	}
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
@@ -210,11 +297,11 @@ func (s Status) String() string {
 			progress = append(progress, fmt.Sprintf("%v=%v", annotationType, annotationProgress))
 		}
 	}
-	return fmt.Sprintf("{ name=%v uri=%v done=%v progress=[ %v ] }", s.Name, s.Uri, s.Done, strings.Join(progress, ","))
+	return fmt.Sprintf("{ name=%v uri=%v updated=%v done=%v progress=[ %v ] }", s.Name, s.Uri, my_time{s.Updated}, s.Done, strings.Join(progress, ","))
 }
 
 func (p Progress) String() string {
-	return fmt.Sprintf("{ percent=%v start=%v updated=%v }", p.Percent, my_time{p.StartTime}, my_time{p.UpdateTime})
+	return fmt.Sprintf("{ done=%v percent=%v start=%v updated=%v }", p.Done, p.Percent, my_time{p.StartTime}, my_time{p.UpdateTime})
 }
 
 func (t my_time) String() string {
