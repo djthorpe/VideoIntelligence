@@ -56,7 +56,7 @@ func runMain(api *service.Service, uris []string) error {
 				if status, err := api.Status(operation); err != nil {
 					return err
 				} else {
-					fmt.Println("status=", status)
+					fmt.Printf("Percent Complete=%v%%\n", status.PercentComplete())
 					time.Sleep(1 * time.Second)
 					if status.Done {
 						break
