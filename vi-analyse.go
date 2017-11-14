@@ -42,6 +42,41 @@ func annotationFlags() service.AnnotationType {
 	return flags
 }
 
+func outputResponseEntity(output *util.Output, t string, label *service.EntityAnnotation) {
+	for i := range label.Segments {
+		entity_description := label.Entity.Description
+		for i, category := range label.Categories {
+			if i == 0 {
+				entity_description = entity_description + " > "
+			} else {
+				entity_description = entity_description + ", "
+			}
+			entity_description = entity_description + category.Description
+		}
+		if i == 0 {
+			output.AppendMap(map[string]interface{}{
+				"type":        t,
+				"value":       label,
+				"entity":      label.Entity.EntityId,
+				"description": entity_description,
+				"start":       label.Segments[0].StartOffset,
+				"end":         label.Segments[0].EndOffset,
+				"confidence":  label.Segments[0].Confidence,
+			})
+		} else {
+			output.AppendMap(map[string]interface{}{
+				"type":        "",
+				"value":       "",
+				"entity":      "",
+				"description": "",
+				"start":       label.Segments[i].StartOffset,
+				"end":         label.Segments[i].EndOffset,
+				"confidence":  label.Segments[i].Confidence,
+			})
+		}
+	}
+}
+
 func outputResponse(status *service.Status, output *util.Output) {
 	if len(status.Annotations.Shots) > 0 {
 		for _, shot := range status.Annotations.Shots {
@@ -55,22 +90,12 @@ func outputResponse(status *service.Status, output *util.Output) {
 	}
 	if len(status.Annotations.ShotLabels) > 0 {
 		for _, label := range status.Annotations.ShotLabels {
-			output.AppendMap(map[string]interface{}{
-				"type":        "shot_label",
-				"value":       label,
-				"entity":      label.Entity.EntityId,
-				"description": label.Entity.Description,
-			})
+			outputResponseEntity(output, "shot_label", label)
 		}
 	}
 	if len(status.Annotations.SegmentLabels) > 0 {
 		for _, label := range status.Annotations.SegmentLabels {
-			output.AppendMap(map[string]interface{}{
-				"type":        "segment_label",
-				"value":       label,
-				"entity":      label.Entity.EntityId,
-				"description": label.Entity.Description,
-			})
+			outputResponseEntity(output, "segment_label", label)
 		}
 	}
 	if len(status.Annotations.ExplicitContent) > 0 {
@@ -93,7 +118,11 @@ func runMain(api *service.Service, uris []string) error {
 	}
 
 	// Gather output
-	output := util.NewOutput("type", "entity", "description", "start", "end", "confidence", "value")
+	output := util.NewOutput("type", "entity", "description", "start", "end", "confidence")
+	// Add value column if debug
+	if *FlagDebug {
+		output.AddColumns("value")
+	}
 
 	// Return Annotate result for each URI
 	for _, uri := range uris {

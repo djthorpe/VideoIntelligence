@@ -28,6 +28,11 @@ func NewOutput(columns ...string) *Output {
 	return this
 }
 
+// AddColumns
+func (this *Output) AddColumns(columns ...string) {
+	this.columns = append(this.columns, columns...)
+}
+
 // AppendMap appends a row to the table
 func (this *Output) AppendMap(row map[string]interface{}) {
 	r := this.newRow()
