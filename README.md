@@ -1,7 +1,12 @@
 # VideoIntelligence
 
-Test Code for Google's Video Intelligence API. In order to download the latest version
-of the Video Intelligence API, you need to run the following script first:
+Test Code for interacting with Google's Cloud Video Intelligence API in golang. 
+Here's a link to the documentation for the API:
+
+https://cloud.google.com/video-intelligence/
+
+In order to download the latest version of the Video Intelligence API, you 
+need to run the following script first:
 
 ```
 [bash] build/updateapis.sh
