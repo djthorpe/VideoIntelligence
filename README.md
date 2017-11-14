@@ -36,7 +36,8 @@ Service Account JSON in your home directory, with the name
 `.yt-video-intelligence.json` but you can also reference another service account
 using the `-sa` flag.
 
-Here is what typical output looks like:
+If you use the`-debug` flag you get to see what the API request and responses look like
+and extra information in the output. Here is what typical output looks like:
 
 ```
 [bash] go run vi-analyse.go -shot -explicit -label gs://cloud-ml-sandbox/video/chicago.mp4
