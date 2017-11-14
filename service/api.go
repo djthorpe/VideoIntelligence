@@ -86,9 +86,6 @@ type Progress struct {
 	UpdateTime time.Time
 }
 
-// Response defines the response of the annotation operations
-type Response struct{}
-
 // AnnotationType are the types of annotations
 type AnnotationType uint
 
@@ -361,7 +358,6 @@ func (this *Service) setExplicitAnnotation(status *Status, annotations *v1beta2.
 			Likelihood: likelihood,
 		}
 	}
-	fmt.Printf("setExplicitAnnotation %v => %v\n", status.Name, status.Annotations.ExplicitContent)
 	return nil
 }
 
@@ -402,7 +398,6 @@ func (this *Service) setSegmentLabelAnnotations(status *Status, annotations []*v
 	if status.Annotations.SegmentLabels, err = this.setEntityAnnotations(annotations); err != nil {
 		return err
 	}
-	fmt.Printf("setSegmentLabelAnnotations %v => %v\n", status.Name, status.Annotations.SegmentLabels)
 	return nil
 }
 
@@ -411,7 +406,6 @@ func (this *Service) setShotLabelAnnotations(status *Status, annotations []*v1be
 	if status.Annotations.ShotLabels, err = this.setEntityAnnotations(annotations); err != nil {
 		return err
 	}
-	fmt.Printf("setShotLabelAnnotations %v => %v\n", status.Name, status.Annotations.ShotLabels)
 	return nil
 }
 
@@ -431,7 +425,6 @@ func (this *Service) setShotAnnotations(status *Status, annotations []*v1beta2.G
 			EndOffset:   endOffset,
 		}
 	}
-	fmt.Printf("setShotAnnotations %v => %v\n", status.Name, status.Annotations.Shots)
 	return nil
 }
 
